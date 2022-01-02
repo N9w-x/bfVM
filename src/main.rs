@@ -9,7 +9,11 @@ mod vm_define;
 
 #[deny(arithmetic_overflow)]
 fn main() {
-    let (op_vec, jump_addr_vec) = Parser::reade("./test.bf");
-    let mut bf_vm = VM::<1024, 1024>::new(op_vec.clone(), jump_addr_vec);
-    bf_vm.execute(op_vec);
+    let vec = Parser::parse("./test.bf");
+    //for op in vec {
+    //    println!("{:#?}", op);
+    //}
+    //let (op_vec, jump_addr_vec) = Parser::read("./test.bf");
+    let mut bf_vm = VM::<4096, 4096>::new();
+    bf_vm.execute(vec);
 }

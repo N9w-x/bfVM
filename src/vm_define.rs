@@ -1,10 +1,10 @@
 use std::io::{Read, Stdin, stdin, Stdout, stdout, Write};
 
-use crate::parser::OpCode;
+use crate::parser::{AstNode, OpCode};
+use crate::parser::AstNode::LoopBlock;
 
 pub struct VM<const T: usize, const ROM_SIZE: usize> {
     mem: Box<[u8; T]>,
-    rom: Box<[OpCode; ROM_SIZE]>,
     pointer: usize,
     jump_addr: (usize, usize),
     jump_stack: Vec<(usize, usize)>,
@@ -13,13 +13,23 @@ pub struct VM<const T: usize, const ROM_SIZE: usize> {
 }
 
 impl<const T: usize, const ROM_SIZE: usize> VM<T, ROM_SIZE> {
-    pub fn new(_rom: Vec<OpCode>, jump_addr_stack: Vec<(usize, usize)>) -> Self {
+    //pub fn new(_rom: Vec<OpCode>, jump_addr_stack: Vec<(usize, usize)>) -> Self {
+    //    Self {
+    //        mem: Box::new([0; T]),
+    //        pointer: 0,
+    //        jump_addr: (0, 0),
+    //        jump_stack: jump_addr_stack,
+    //        std_in: stdin(),
+    //        std_out: stdout(),
+    //    }
+    //}
+    
+    pub fn new() -> Self {
         Self {
             mem: Box::new([0; T]),
-            rom: Box::new([OpCode::Null; ROM_SIZE]),
             pointer: 0,
             jump_addr: (0, 0),
-            jump_stack: jump_addr_stack,
+            jump_stack: vec![],
             std_in: stdin(),
             std_out: stdout(),
         }
@@ -50,58 +60,39 @@ impl<const T: usize, const ROM_SIZE: usize> VM<T, ROM_SIZE> {
         self.mem[self.pointer] = val;
     }
     
+    fn pointer_move(&mut self, oth: usize) {
+        if oth == usize::MAX {
+            if self.pointer == 0 {
+                self.pointer = T - 1;
+            } else {
+                let (val, _) = self.pointer.overflowing_add(oth);
+                self.pointer = val;
+            }
+        } else {
+            self.pointer = (self.pointer + oth) % T;
+        }
+    }
+    
     fn get_unit(&self) -> &u8 {
         &self.mem[self.pointer]
     }
     
-    pub fn execute(&mut self, op_vec: Vec<OpCode>) {
-        assert!(op_vec.len() <= self.rom.len());
-        // load
-        for (pointer, op) in op_vec.into_iter().enumerate() {
-            self.rom[pointer] = op;
-        }
-        
-        //execute
-        let mut pc = 0usize;
-        while pc < self.rom.len() {
-            match self.rom[pc] {
-                OpCode::Add => self.pointer = (self.pointer + 1) % T,
-                OpCode::Sub => {
-                    let (t, over) = self.pointer.overflowing_sub(1);
-                    if over {
-                        self.pointer = T - 1;
-                    } else {
-                        self.pointer = t;
-                    }
-                }
-                OpCode::Inc => self.calc(1),
-                OpCode::Dec => self.calc(u8::MAX),
-                OpCode::In => self.get_input(),
-                OpCode::Out => self.get_output(),
-                OpCode::JumpAfter(addr) => {
-                    // check jump addr
-                    if self.jump_addr.0 != addr {
-                        self.jump_addr = self.jump_stack.pop().unwrap();
-                    }
-                    
-                    if *self.get_unit() == 0 {
-                        pc = self.jump_addr.1 + 1;
-                    } else {
-                        pc += 1;
-                    }
-                    continue;
-                }
-                OpCode::JumpBefore(_addr) => {
-                    if *self.get_unit() != 0 {
-                        pc = self.jump_addr.0 + 1;
-                    } else {
-                        pc += 1;
-                    }
-                    continue;
-                }
-                OpCode::Null => break
+    pub fn execute(&mut self, node_list: Vec<AstNode>) {
+        for node in node_list {
+            match node {
+                AstNode::PointerInc { val } => self.pointer_move(val),
+                AstNode::Inc { val } => self.calc(val),
+                AstNode::Read => self.get_input(),
+                AstNode::Write => self.get_output(),
+                AstNode::LoopBlock {
+                    block, ..
+                } => while self.mem[self.pointer] != 0 {
+                    self.execute(block.clone());
+                    if self.mem[self.pointer] == 0 {
+                        break;
+                    };
+                },
             }
-            pc += 1;
         }
     }
 }
