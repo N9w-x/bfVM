@@ -7,7 +7,8 @@ mod parser;
 
 mod vm_define;
 
-#[deny(arithmetic_overflow)]
+// todo add cli params to config the vm
+// todo change to multi threads
 fn main() {
     let vec = Parser::parse("./test.bf");
     //for op in vec {

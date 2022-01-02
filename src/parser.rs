@@ -1,12 +1,12 @@
-use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::io::Read;
 use std::str::{self};
 use std::usize;
 
-use crate::parser::AstNode::{LoopBlock, PointerInc};
+use crate::parser::AstNode::LoopBlock;
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[allow(dead_code)]
 pub enum OpCode {
     Add,
     Sub,
@@ -73,6 +73,7 @@ impl Parser {
     }
     
     //read from file and return opcode and pair address
+    #[allow(dead_code)]
     pub fn read(path: &str) -> (Vec<OpCode>, Vec<(usize, usize)>) {
         let mut file = File::open(path).expect("open file fail");
         let mut byte_vec: Vec<u8> = Vec::new();

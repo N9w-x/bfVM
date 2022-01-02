@@ -1,13 +1,10 @@
 use std::io::{Read, Stdin, stdin, Stdout, stdout, Write};
 
-use crate::parser::{AstNode, OpCode};
-use crate::parser::AstNode::LoopBlock;
+use crate::parser::AstNode;
 
 pub struct VM<const T: usize, const ROM_SIZE: usize> {
     mem: Box<[u8; T]>,
     pointer: usize,
-    jump_addr: (usize, usize),
-    jump_stack: Vec<(usize, usize)>,
     std_in: Stdin,
     std_out: Stdout,
 }
@@ -28,8 +25,6 @@ impl<const T: usize, const ROM_SIZE: usize> VM<T, ROM_SIZE> {
         Self {
             mem: Box::new([0; T]),
             pointer: 0,
-            jump_addr: (0, 0),
-            jump_stack: vec![],
             std_in: stdin(),
             std_out: stdout(),
         }
@@ -73,8 +68,8 @@ impl<const T: usize, const ROM_SIZE: usize> VM<T, ROM_SIZE> {
         }
     }
     
-    fn get_unit(&self) -> &u8 {
-        &self.mem[self.pointer]
+    fn get_unit(&self) -> u8 {
+        self.mem[self.pointer]
     }
     
     pub fn execute(&mut self, node_list: Vec<AstNode>) {
@@ -86,9 +81,9 @@ impl<const T: usize, const ROM_SIZE: usize> VM<T, ROM_SIZE> {
                 AstNode::Write => self.get_output(),
                 AstNode::LoopBlock {
                     block, ..
-                } => while self.mem[self.pointer] != 0 {
+                } => while self.get_unit() != 0 {
                     self.execute(block.clone());
-                    if self.mem[self.pointer] == 0 {
+                    if self.get_unit() == 0 {
                         break;
                     };
                 },
