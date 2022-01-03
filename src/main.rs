@@ -1,20 +1,30 @@
-#![feature(bool_to_option)]
+#![allow(non_snake_case)]
 
-use crate::parser::Parser;
+use clap::clap_app;
+
+use crate::parser::SimpleParser;
 use crate::vm_define::VM;
 
 mod parser;
 
 mod vm_define;
 
-// todo add cli params to config the vm
-// todo change to multi threads
+
+// todo try to add simple optimize
 fn main() {
-    let vec = Parser::parse("./test.bf");
-    //for op in vec {
-    //    println!("{:#?}", op);
-    //}
-    //let (op_vec, jump_addr_vec) = Parser::read("./test.bf");
-    let mut bf_vm = VM::<4096, 4096>::new();
-    bf_vm.execute(vec);
+    let args = clap_app!(BFVM =>
+        (version: "0.0.1")
+        (author: "wnx")
+        (@arg Mem:-m -mem "选择虚拟机内存大小")
+        (@arg File:-f --file  + takes_value "选择执行的文件")
+    ).get_matches();
+    
+    let file = args.value_of("File");
+    if file.is_some() {
+        let mut vm = VM::<{ 1024 * 4 }>::new(file.unwrap(), Box::new(SimpleParser));
+        vm.exec();
+    } else {
+        let mut vm = VM::<{ 1024 * 4 }>::default();
+        vm.read_from_stdin();
+    }
 }

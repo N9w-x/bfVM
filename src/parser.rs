@@ -3,22 +3,6 @@ use std::io::Read;
 use std::str::{self};
 use std::usize;
 
-use crate::parser::AstNode::LoopBlock;
-
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
-#[allow(dead_code)]
-pub enum OpCode {
-    Add,
-    Sub,
-    Inc,
-    Dec,
-    In,
-    Out,
-    JumpAfter(usize),
-    JumpBefore(usize),
-    Null,
-}
-
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum AstNode {
     PointerInc {
@@ -35,14 +19,28 @@ pub enum AstNode {
     },
 }
 
-pub struct Parser;
+pub trait Parse {
+    fn parse(&self, path: &str) -> Vec<AstNode>;
+    fn parse_from_stdin(&self, source: String) -> Vec<AstNode>;
+}
 
-impl Parser {
-    pub fn parse(path: &str) -> Vec<AstNode> {
+pub struct SimpleParser;
+
+impl Parse for SimpleParser {
+    fn parse(&self, path: &str) -> Vec<AstNode> {
         // read source code file to string
         let mut source = String::new();
         File::open(path).expect("open file fail").read_to_string(&mut source).unwrap();
-        
+        self.parse_source(source)
+    }
+    
+    fn parse_from_stdin(&self, source: String) -> Vec<AstNode> {
+        self.parse_source(source)
+    }
+}
+
+impl SimpleParser {
+    fn parse_source(&self, source: String) -> Vec<AstNode> {
         let mut inst = vec![];
         let mut stack = vec![];
         for (addr, op_code) in source.chars().enumerate() {
@@ -59,7 +57,7 @@ impl Parser {
                 }
                 ']' => {
                     if let Some((mut block, start_addr)) = stack.pop() {
-                        block.push(LoopBlock {
+                        block.push(AstNode::LoopBlock {
                             range: (start_addr, addr),
                             block: inst,
                         });
@@ -70,43 +68,5 @@ impl Parser {
             }
         };
         inst
-    }
-    
-    //read from file and return opcode and pair address
-    #[allow(dead_code)]
-    pub fn read(path: &str) -> (Vec<OpCode>, Vec<(usize, usize)>) {
-        let mut file = File::open(path).expect("open file fail");
-        let mut byte_vec: Vec<u8> = Vec::new();
-        file.read_to_end(&mut byte_vec).unwrap();
-        
-        let mut op_vec: Vec<OpCode> = Vec::new();
-        //jump after and jump before addr vec
-        let mut addr_pair: Vec<(usize, usize)> = Vec::new();
-        //temp store left bracket addr
-        let mut left_bracket_addr = 0usize;
-        
-        //parse bf source code
-        //todo add syntax checker
-        for (addr, byte) in byte_vec.iter().enumerate() {
-            match str::from_utf8(&[*byte]).unwrap() {
-                ">" => op_vec.push(OpCode::Add),
-                "<" => op_vec.push(OpCode::Sub),
-                "+" => op_vec.push(OpCode::Inc),
-                "-" => op_vec.push(OpCode::Dec),
-                "." => op_vec.push(OpCode::Out),
-                "," => op_vec.push(OpCode::In),
-                "[" => {
-                    op_vec.push(OpCode::JumpAfter(addr));
-                    left_bracket_addr = addr;
-                }
-                "]" => {
-                    op_vec.push(OpCode::JumpBefore(addr));
-                    addr_pair.push((left_bracket_addr, addr));
-                }
-                _ => {}
-            }
-        };
-        
-        (op_vec, addr_pair)
     }
 }

@@ -1,38 +1,35 @@
 use std::io::{Read, Stdin, stdin, Stdout, stdout, Write};
 
-use crate::parser::AstNode;
+use crate::parser::{AstNode, Parse};
+use crate::SimpleParser;
 
-pub struct VM<const T: usize, const ROM_SIZE: usize> {
-    mem: Box<[u8; T]>,
+type Parser = Box<dyn Parse>;
+
+pub struct VM<const RAM_SIZE: usize> {
+    mem: Box<[u8; RAM_SIZE]>,
+    rom: Vec<AstNode>,
     pointer: usize,
+    #[allow(dead_code)]
+    parser: Parser,
     std_in: Stdin,
     std_out: Stdout,
 }
 
-impl<const T: usize, const ROM_SIZE: usize> VM<T, ROM_SIZE> {
-    //pub fn new(_rom: Vec<OpCode>, jump_addr_stack: Vec<(usize, usize)>) -> Self {
-    //    Self {
-    //        mem: Box::new([0; T]),
-    //        pointer: 0,
-    //        jump_addr: (0, 0),
-    //        jump_stack: jump_addr_stack,
-    //        std_in: stdin(),
-    //        std_out: stdout(),
-    //    }
-    //}
-    
-    pub fn new() -> Self {
+impl<const RAM_SIZE: usize> Default for VM<RAM_SIZE> {
+    fn default() -> Self {
         Self {
-            mem: Box::new([0; T]),
+            mem: Box::new([0; RAM_SIZE]),
+            rom: vec![],
             pointer: 0,
+            parser: Box::new(SimpleParser),
             std_in: stdin(),
             std_out: stdout(),
         }
     }
 }
 
-
-impl<const T: usize, const ROM_SIZE: usize> VM<T, ROM_SIZE> {
+// inner functions
+impl<const RAM_SIZE: usize> VM<RAM_SIZE> {
     fn get_input(&mut self) {
         let mut buf = [0u8; 1];
         let len = match self.std_in.read(&mut buf) {
@@ -58,13 +55,13 @@ impl<const T: usize, const ROM_SIZE: usize> VM<T, ROM_SIZE> {
     fn pointer_move(&mut self, oth: usize) {
         if oth == usize::MAX {
             if self.pointer == 0 {
-                self.pointer = T - 1;
+                self.pointer = RAM_SIZE - 1;
             } else {
                 let (val, _) = self.pointer.overflowing_add(oth);
                 self.pointer = val;
             }
         } else {
-            self.pointer = (self.pointer + oth) % T;
+            self.pointer = (self.pointer + oth) % RAM_SIZE;
         }
     }
     
@@ -72,7 +69,7 @@ impl<const T: usize, const ROM_SIZE: usize> VM<T, ROM_SIZE> {
         self.mem[self.pointer]
     }
     
-    pub fn execute(&mut self, node_list: Vec<AstNode>) {
+    fn execute(&mut self, node_list: Vec<AstNode>) {
         for node in node_list {
             match node {
                 AstNode::PointerInc { val } => self.pointer_move(val),
@@ -89,6 +86,31 @@ impl<const T: usize, const ROM_SIZE: usize> VM<T, ROM_SIZE> {
                 },
             }
         }
+    }
+}
+
+impl<const RAM_SIZE: usize> VM<RAM_SIZE> {
+    pub fn new(path: &str, parser: Parser) -> Self {
+        let rom = parser.parse(path);
+        Self {
+            mem: Box::new([0; RAM_SIZE]),
+            rom,
+            pointer: 0,
+            parser,
+            std_in: stdin(),
+            std_out: stdout(),
+        }
+    }
+    
+    pub fn exec(&mut self) {
+        self.execute(self.rom.clone());
+    }
+    
+    pub fn read_from_stdin(&mut self) {
+        let mut source = String::new();
+        self.std_in.read_line(&mut source).unwrap();
+        let vec = self.parser.parse_from_stdin(source);
+        self.execute(vec);
     }
 }
 
