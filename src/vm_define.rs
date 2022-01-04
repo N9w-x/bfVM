@@ -112,5 +112,10 @@ impl<const RAM_SIZE: usize> VM<RAM_SIZE> {
         let vec = self.parser.parse_from_stdin(source);
         self.execute(vec);
     }
+    
+    #[allow(unused)]
+    pub fn read_new_file(&mut self, path: &str) {
+        self.rom = self.parser.parse(path);
+    }
 }
 
